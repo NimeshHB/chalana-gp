@@ -12,6 +12,7 @@ import { BarChart3, Users, Car, TrendingUp, AlertTriangle, MessageCircle, Send, 
 import { AdminManagement } from "./admin-management"
 import { AdminActivityDashboard } from "./admin-activity-dashboard"
 import { SlotManagement } from "./slot-management"
+import { UserManagementDashboard } from "./user-management-dashboard"
 import { useState, useEffect } from "react"
 import { LoginForm } from "./login-form" // Adjust path as needed
 import { useAnalytics } from "@/hooks/use-analytics"
@@ -154,23 +155,6 @@ export function AdminDashboard({}: AdminDashboardProps) {
     link.download = `parking_report_${new Date().toISOString().split("T")[0]}.csv`
     link.click()
     window.URL.revokeObjectURL(url)
-  }
-
-  // State to manage the list of users
-  const [users, setUsers] = useState([
-    { id: 1, name: "John Doe", email: "john@example.com", role: "user", status: "Active", vehicleNumber: "ABC123" },
-    { id: 2, name: "Jane Smith", email: "jane@parking.com", role: "attendant", status: "Active" },
-    { id: 3, name: "Admin User", email: "admin@parking.com", role: "admin", status: "Active", adminLevel: "manager" },
-  ])
-  const [isAddUserOpen, setIsAddUserOpen] = useState(false)
-
-  // Handle new user addition
-  const handleUserAdded = (newUser) => {
-    setUsers((prevUsers) => [
-      ...prevUsers,
-      { ...newUser, id: Date.now(), status: "Active" }, // Assign a unique ID and default status
-    ])
-    setIsAddUserOpen(false) // Close modal
   }
 
   return (
@@ -585,57 +569,14 @@ export function AdminDashboard({}: AdminDashboardProps) {
         </TabsContent>
 
         <TabsContent value="users" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>Manage vehicle users and attendants</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-medium">Registered Users</h4>
-                  <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm">Add New User</Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <CardTitle>Add New User</CardTitle>
-                        <DialogDescription>Create a new user account</DialogDescription>
-                      </DialogHeader>
-                      <LoginForm
-                        onLogin={handleUserAdded}
-                        initialTab="register"
-                        isModal={true}
-                        onClose={() => setIsAddUserOpen(false)}
-                      />
-                    </DialogContent>
-                  </Dialog>
-                </div>
-                <div className="space-y-2">
-                  {users.map((user) => (
-                    <div
-                      key={user.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Users className="h-5 w-5 text-gray-500" />
-                        <div>
-                          <p className="font-medium">{user.name}</p>
-                          <p className="text-sm text-gray-500">{user.email}</p>
-                        </div>
-                      </div>
-                      <Badge variant={user.role === "admin" ? "secondary" : "default"}>
-                        {user.role === "user" && user.vehicleNumber
-                          ? `${user.role} (${user.vehicleNumber})`
-                          : user.role}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <UserManagementDashboard 
+            currentUser={{
+              id: "1",
+              name: "Admin User",
+              role: "admin",
+              permissions: ["all", "admins", "users", "slots", "analytics", "reports", "settings", "billing"]
+            }}
+          />
         </TabsContent>
 
         <TabsContent value="overview" className="space-y-4">
