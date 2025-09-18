@@ -10,6 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import AdminBookingManagement from './AdminBookingManagement'
 import { BarChart3, Users, Car, TrendingUp, AlertTriangle, MessageCircle, Send, Calendar, Activity } from "lucide-react"
 import { AdminManagement } from "./admin-management"
+import { AdminActivityDashboard } from "./admin-activity-dashboard"
 import { SlotManagement } from "./slot-management"
 import { useState, useEffect } from "react"
 import { LoginForm } from "./login-form" // Adjust path as needed
@@ -226,12 +227,13 @@ export function AdminDashboard({}: AdminDashboardProps) {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="chat">Chat</TabsTrigger>
           <TabsTrigger value="slots">Slot Management</TabsTrigger>
           <TabsTrigger value="admins">Admin Management</TabsTrigger>
+          <TabsTrigger value="activity">Admin Activity</TabsTrigger>
           <TabsTrigger value="bookings">Recent Bookings</TabsTrigger>
           <TabsTrigger value="users">User Management</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -705,7 +707,19 @@ export function AdminDashboard({}: AdminDashboardProps) {
         </TabsContent>
 
         <TabsContent value="admins" className="space-y-4">
-          <AdminManagement currentUser={{ id: 1, name: "Admin User", role: "admin" }} />
+          <AdminManagement 
+            currentUser={{ 
+              id: 1, 
+              name: "Admin User", 
+              role: "admin",
+              adminLevel: "super",
+              permissions: ["all", "admins", "users", "slots", "analytics", "reports", "settings", "billing"]
+            }} 
+          />
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-4">
+          <AdminActivityDashboard />
         </TabsContent>
 
         <TabsContent value="bookings" className="space-y-4">
