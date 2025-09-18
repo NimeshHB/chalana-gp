@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import AdminBookingManagement from './AdminBookingManagement'
 import { BarChart3, Users, Car, TrendingUp, AlertTriangle, MessageCircle, Send, Calendar, Activity } from "lucide-react"
 import { AdminManagement } from "./admin-management"
 import { SlotManagement } from "./slot-management"
@@ -47,16 +48,46 @@ interface ParkingSlot {
   bookedAt?: string
 }
 
-interface AdminDashboardProps {
-  parkingSlots: ParkingSlot[]
-  onSlotsUpdate: (slots: ParkingSlot[]) => void
-}
+interface AdminDashboardProps {}
 
-export function AdminDashboard({ parkingSlots, onSlotsUpdate }: AdminDashboardProps) {
+export function AdminDashboard({}: AdminDashboardProps) {
+  const [parkingSlots, setParkingSlots] = useState<ParkingSlot[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // Fetch slots for dashboard statistics
+  const fetchSlots = async () => {
+    try {
+      const response = await fetch('/api/slots')
+      const data = await response.json()
+      if (data.success) {
+        const formattedSlots = data.slots.map((slot: any) => ({
+          id: slot._id,
+          number: slot.number,
+          status: slot.status,
+          vehicleNumber: slot.vehicleNumber,
+          bookedBy: slot.bookedBy,
+          bookedAt: slot.bookedAt
+        }))
+        setParkingSlots(formattedSlots)
+      }
+    } catch (error) {
+      console.error('Failed to fetch slots:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchSlots()
+    // Refresh every 30 seconds for real-time updates
+    const interval = setInterval(fetchSlots, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
   const occupiedSlots = parkingSlots.filter((slot: ParkingSlot) => slot.status === "occupied").length
   const availableSlots = parkingSlots.filter((slot: ParkingSlot) => slot.status === "available").length
   const blockedSlots = parkingSlots.filter((slot: ParkingSlot) => slot.status === "blocked").length
-  const occupancyRate = Math.round((occupiedSlots / parkingSlots.length) * 100)
+  const occupancyRate = parkingSlots.length > 0 ? Math.round((occupiedSlots / parkingSlots.length) * 100) : 0
 
   // Real total users state
   const [totalUsers, setTotalUsers] = useState<number | null>(null)
@@ -669,7 +700,7 @@ export function AdminDashboard({ parkingSlots, onSlotsUpdate }: AdminDashboardPr
         </TabsContent>
 
         <TabsContent value="slots" className="space-y-4">
-          <SlotManagement parkingSlots={parkingSlots} onSlotsUpdate={onSlotsUpdate} />
+          <SlotManagement />
         </TabsContent>
 
         <TabsContent value="admins" className="space-y-4">
@@ -677,33 +708,7 @@ export function AdminDashboard({ parkingSlots, onSlotsUpdate }: AdminDashboardPr
         </TabsContent>
 
         <TabsContent value="bookings" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Bookings</CardTitle>
-              <CardDescription>Latest parking slot bookings and activities</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentBookings.map((slot) => (
-                  <div key={slot.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Car className="h-5 w-5 text-gray-500" />
-                      <div>
-                        <p className="font-medium">Slot {slot.number}</p>
-                        <p className="text-sm text-gray-500">
-                          {slot.vehicleNumber} - {slot.bookedBy}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">{new Date(slot.bookedAt).toLocaleTimeString()}</p>
-                      <p className="text-xs text-gray-500">{new Date(slot.bookedAt).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          <AdminBookingManagement />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">

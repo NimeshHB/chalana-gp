@@ -1,31 +1,19 @@
-import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Car, Clock, User } from "lucide-react"
 import { cn } from "@/lib/utils"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import BookingForm from "./BookingForm"
 
-export function ParkingSlotGrid({ slots, onSlotUpdate, userRole, currentUser }: any) {
-  const [showBookingForm, setShowBookingForm] = useState(false)
-  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null)
-
-  const handleSlotAction = (slotId: string, action: string) => {
+export function ParkingSlotGrid({ slots, onSlotUpdate, userRole, currentUser }) {
+  
+  const handleSlotAction = (slotId, action) => {
     if (action === "book") {
-      // Set the selected slot and open BookingForm dialog
-      setSelectedSlotId(slotId)
-      setShowBookingForm(true)
+      // For now, just show an alert
+      alert("Booking functionality temporarily disabled")
       return
     }
     
-    const updatedSlots = slots.map((slot: any) => {
+    const updatedSlots = slots.map((slot) => {
       if (slot.id === slotId) {
         switch (action) {
           case "free":
@@ -54,8 +42,9 @@ export function ParkingSlotGrid({ slots, onSlotUpdate, userRole, currentUser }: 
     })
     onSlotUpdate(updatedSlots)
   }
+  }
 
-  const getSlotColor = (status: string) => {
+  const getSlotColor = (status) => {
     switch (status) {
       case "available":
         return "bg-green-100 border-green-300 hover:bg-green-200"
@@ -70,17 +59,16 @@ export function ParkingSlotGrid({ slots, onSlotUpdate, userRole, currentUser }: 
     }
   }
 
-  const getTimeElapsed = (bookedAt: string) => {
+  const getTimeElapsed = (bookedAt) => {
     if (!bookedAt) return null
-    const elapsed = Math.floor((new Date().getTime() - new Date(bookedAt).getTime()) / (1000 * 60))
+    const elapsed = Math.floor((new Date() - new Date(bookedAt)) / (1000 * 60))
     if (elapsed < 60) return `${elapsed}m`
     return `${Math.floor(elapsed / 60)}h ${elapsed % 60}m`
   }
 
   return (
-    <>
     <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-      {slots.map((slot: any) => (
+      {slots.map((slot) => (
         <Card
           key={slot.id}
           className={cn("relative transition-all duration-200 cursor-pointer", getSlotColor(slot.status))}
@@ -102,15 +90,16 @@ export function ParkingSlotGrid({ slots, onSlotUpdate, userRole, currentUser }: 
                 />
               </div>
 
-              <h3 className="font-bold text-lg mb-1">
-                {slot.slotName || slot.number}
-              </h3>
+              <h3 className="font-bold text-lg mb-1">{slot.number}</h3>
 
               <Badge variant={slot.status === "available" ? "default" : "secondary"} className="mb-2 capitalize">
                 {slot.status}
               </Badge>
 
               {slot.vehicleNumber && <p className="text-xs text-gray-600 mb-1">🚗 {slot.vehicleNumber}</p>}
+
+              {/* Removed vehicleType display */}
+              {/* {slot.vehicleType && <p className="text-xs text-gray-600 mb-1 capitalize">🚗 {slot.vehicleType}</p> } */}
 
               {slot.bookedBy && (
                 <p className="text-xs text-gray-600 mb-1">
@@ -175,26 +164,5 @@ export function ParkingSlotGrid({ slots, onSlotUpdate, userRole, currentUser }: 
         </Card>
       ))}
     </div>
-
-    {/* Booking Form Dialog */}
-    <Dialog open={showBookingForm} onOpenChange={setShowBookingForm}>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Book a Parking Slot</DialogTitle>
-          <DialogDescription>
-            Select your preferred slot and complete your booking
-          </DialogDescription>
-        </DialogHeader>
-        <BookingForm 
-          onSuccess={() => {
-            setShowBookingForm(false)
-            setSelectedSlotId(null)
-          }} 
-          currentUser={currentUser}
-          preSelectedSlotId={selectedSlotId}
-        />
-      </DialogContent>
-    </Dialog>
-    </>
   )
 }

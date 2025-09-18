@@ -10,28 +10,77 @@ import { UserDashboard } from "@/components/user-dashboard"
 import { AttendantDashboard } from "@/components/attendant-dashboard"
 import { LoginForm } from "@/components/login-form"
 
+interface User {
+  id: number | string
+  name: string
+  role: "admin" | "user" | "attendant"
+  email: string
+}
+
+interface ParkingSlot {
+  id: string
+  _id: string
+  number: string
+  status: "available" | "occupied" | "blocked"
+  vehicleNumber?: string | null
+  bookedBy?: string | null
+  bookedAt?: Date | string | null
+  timeLimit: number
+  section?: string
+  type?: string
+  hourlyRate?: number
+  maxTimeLimit?: number
+  description?: string
+  bookedByUserId?: string | null
+}
+
 // Mock user data - in real app, this would come from your auth system
 const mockUsers = {
-  admin: { id: 1, name: "Admin User", role: "admin", email: "admin@parking.com" },
+  admin: { id: 1, name: "Admin User", role: "admin" as const, email: "admin@parking.com" },
   // Remove the hardcoded user and attendant - they'll login properly
 }
 
 export default function ParkingManagementSystem() {
-  const [currentUser, setCurrentUser] = useState(null)
-  const [parkingSlots, setParkingSlots] = useState([])
+  const [currentUser, setCurrentUser] = useState<User | null>(null)
+  const [parkingSlots, setParkingSlots] = useState<ParkingSlot[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Initialize parking slots with all available
+  // Fetch parking slots from API
+  const fetchSlots = async () => {
+    try {
+      const response = await fetch('/api/slots')
+      const data = await response.json()
+      if (data.success) {
+        // Convert backend format to frontend format
+        const formattedSlots = data.slots.map((slot: any) => ({
+          id: slot._id,
+          _id: slot._id,
+          number: slot.number,
+          status: slot.status,
+          vehicleNumber: slot.vehicleNumber,
+          bookedBy: slot.bookedBy,
+          bookedAt: slot.bookedAt,
+          timeLimit: slot.maxTimeLimit || 2,
+          section: slot.section,
+          type: slot.type,
+          hourlyRate: slot.hourlyRate,
+          maxTimeLimit: slot.maxTimeLimit,
+          description: slot.description,
+          bookedByUserId: slot.bookedByUserId
+        }))
+        setParkingSlots(formattedSlots)
+      }
+    } catch (error) {
+      console.error('Failed to fetch slots:', error)
+      // Fallback to empty array if API fails
+      setParkingSlots([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    const initialSlots = Array.from({ length: 10 }, (_, i) => ({
-      id: i + 1,
-      number: `A${String(i + 1).padStart(2, "0")}`,
-      status: "available",
-      vehicleNumber: null,
-      bookedBy: null,
-      bookedAt: null,
-      timeLimit: 2, // hours
-    }))
-    setParkingSlots(initialSlots)
+    fetchSlots()
   }, [])
 
   // Load persisted user on first mount so refresh doesn't log out
@@ -49,7 +98,7 @@ export default function ParkingManagementSystem() {
     }
   }, [])
 
-  const handleLogin = (userData) => {
+  const handleLogin = (userData: User) => {
     setCurrentUser(userData)
     try {
       localStorage.setItem("currentUser", JSON.stringify(userData))
@@ -68,7 +117,7 @@ export default function ParkingManagementSystem() {
   }
 
   if (!currentUser) {
-    return <LoginForm onLogin={handleLogin} />
+    return <LoginForm onLogin={handleLogin} onClose={() => {}} />
   }
 
   return (
@@ -127,7 +176,7 @@ export default function ParkingManagementSystem() {
         </div>
 
         {/* Role-based Dashboard */}
-        {currentUser.role === "admin" && <AdminDashboard parkingSlots={parkingSlots} onSlotsUpdate={setParkingSlots} />}
+        {currentUser.role === "admin" && <AdminDashboard />}
 
         {currentUser.role === "user" && (
           <UserDashboard parkingSlots={parkingSlots} currentUser={currentUser} onSlotUpdate={setParkingSlots} />

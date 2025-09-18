@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,10 +9,28 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Car, Plus, Edit, Trash2, MapPin, AlertTriangle, CheckCircle, DollarSign } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
-export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [editingSlot, setEditingSlot] = useState(null)
+interface ParkingSlot {
+  _id: string
+  number: string
+  section: string
+  type: string
+  hourlyRate: number
+  status: string
+  maxTimeLimit: number
+  description?: string
+  bookedBy?: string
+  vehicleNumber?: string
+  bookedAt?: Date
+  bookedByUserId?: string
+}
+
+export function SlotManagement() {
+  const [parkingSlots, setParkingSlots] = useState<ParkingSlot[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [showAddForm, setShowAddForm] = useState<boolean>(false)
+  const [editingSlot, setEditingSlot] = useState<ParkingSlot | null>(null)
   const [newSlot, setNewSlot] = useState({
     number: "",
     section: "A",
@@ -22,6 +40,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
     maxTimeLimit: 2,
     description: "",
   })
+  const { toast } = useToast()
 
   const slotTypes = [
     { value: "regular", label: "Regular", rate: 5 },
@@ -34,55 +53,99 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
 
   const sections = ["A", "B", "C", "D", "E"]
 
-  const handleAddSlot = () => {
-    if (!newSlot.number) {
-      alert("Please enter a slot number")
-      return
+  // Fetch slots from API
+  const fetchSlots = async () => {
+    try {
+      const response = await fetch('/api/slots')
+      const data = await response.json()
+      if (data.success) {
+        setParkingSlots(data.slots)
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to fetch slots",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to connect to server",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
     }
-
-    // Check if slot number already exists
-    const existingSlot = parkingSlots.find((slot) => slot.number === newSlot.number)
-    if (existingSlot && !editingSlot) {
-      alert("Slot number already exists")
-      return
-    }
-
-    const slot = {
-      id: editingSlot ? editingSlot.id : Math.max(...parkingSlots.map((s) => s.id), 0) + 1,
-      ...newSlot,
-      bookedBy: null,
-      vehicleNumber: null,
-      bookedAt: null,
-      createdAt: editingSlot ? editingSlot.createdAt : new Date(),
-      updatedAt: new Date(),
-    }
-
-    if (editingSlot) {
-      const updatedSlots = parkingSlots.map((s) => (s.id === editingSlot.id ? slot : s))
-      onSlotsUpdate(updatedSlots)
-    } else {
-      onSlotsUpdate([...parkingSlots, slot])
-    }
-
-    setNewSlot({
-      number: "",
-      section: "A",
-      type: "regular",
-      hourlyRate: 5,
-      status: "available",
-      maxTimeLimit: 2,
-      description: "",
-    })
-    setShowAddForm(false)
-    setEditingSlot(null)
   }
 
-  const handleEditSlot = (slot) => {
+  useEffect(() => {
+    fetchSlots()
+  }, [])
+
+  const handleAddSlot = async () => {
+    if (!newSlot.number) {
+      toast({
+        title: "Error",
+        description: "Please enter a slot number",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const url = editingSlot ? '/api/slots' : '/api/slots'
+      const method = editingSlot ? 'PATCH' : 'POST'
+      const body = editingSlot ? { _id: editingSlot._id, ...newSlot } : newSlot
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: editingSlot ? "Slot updated successfully" : "Slot created successfully",
+        })
+        fetchSlots() // Refresh the list
+        setNewSlot({
+          number: "",
+          section: "A", 
+          type: "regular",
+          hourlyRate: 5,
+          status: "available",
+          maxTimeLimit: 2,
+          description: "",
+        })
+        setShowAddForm(false)
+        setEditingSlot(null)
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to save slot",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error", 
+        description: "Failed to connect to server",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleEditSlot = (slot: ParkingSlot) => {
     setEditingSlot(slot)
     setNewSlot({
       number: slot.number,
       section: slot.section || "A",
-      type: slot.type || "regular",
+      type: slot.type || "regular", 
       hourlyRate: slot.hourlyRate || 5,
       status: slot.status,
       maxTimeLimit: slot.maxTimeLimit || 2,
@@ -91,42 +154,89 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
     setShowAddForm(true)
   }
 
-  const handleDeleteSlot = (slotId) => {
-    const slot = parkingSlots.find((s) => s.id === slotId)
+  const handleDeleteSlot = async (slotId: string) => {
+    const slot = parkingSlots.find((s) => s._id === slotId)
     if (slot && slot.status === "occupied") {
-      alert("Cannot delete an occupied slot")
+      toast({
+        title: "Error",
+        description: "Cannot delete an occupied slot",
+        variant: "destructive",
+      })
       return
     }
 
-    if (confirm("Are you sure you want to delete this slot?")) {
-      const updatedSlots = parkingSlots.filter((s) => s.id !== slotId)
-      onSlotsUpdate(updatedSlots)
+    try {
+      const response = await fetch(`/api/slots?_id=${slotId}`, {
+        method: 'DELETE',
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Slot deleted successfully",
+        })
+        fetchSlots() // Refresh the list
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to delete slot",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to connect to server", 
+        variant: "destructive",
+      })
     }
+
   }
 
-  const handleSlotStatusChange = (slotId, newStatus) => {
-    const updatedSlots = parkingSlots.map((slot) => {
-      if (slot.id === slotId) {
-        const updatedSlot = { ...slot, status: newStatus }
+  const handleSlotStatusChange = async (slotId: string, newStatus: string) => {
+    try {
+      const response = await fetch('/api/slots', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          _id: slotId,
+          status: newStatus,
+          // Clear booking data if changing to available or blocked
+          ...(newStatus === "available" || newStatus === "blocked" ? {
+            bookedBy: null,
+            vehicleNumber: null,
+            bookedAt: null,
+            bookedByUserId: null
+          } : {})
+        }),
+      })
 
-        // Clear booking data if changing to available or blocked
-        if (newStatus === "available" || newStatus === "blocked") {
-          updatedSlot.bookedBy = null
-          updatedSlot.vehicleNumber = null
-          updatedSlot.bookedAt = null
-        }
-
-        // Set maintenance info if blocking
-        if (newStatus === "blocked") {
-          updatedSlot.bookedBy = "Maintenance"
-          updatedSlot.bookedAt = new Date()
-        }
-
-        return updatedSlot
+      const data = await response.json()
+      
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Slot status updated successfully",
+        })
+        fetchSlots() // Refresh the list
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || "Failed to update slot status",
+          variant: "destructive",
+        })
       }
-      return slot
-    })
-    onSlotsUpdate(updatedSlots)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to connect to server",
+        variant: "destructive",
+      })
+    }
   }
 
   const generateSlotNumber = () => {
@@ -143,7 +253,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
     const revenue = parkingSlots
       .filter((s) => s.bookedAt)
       .reduce((sum, slot) => {
-        const hours = Math.ceil((new Date() - new Date(slot.bookedAt)) / (1000 * 60 * 60))
+        const hours = slot.bookedAt ? Math.ceil((new Date().getTime() - new Date(slot.bookedAt).getTime()) / (1000 * 60 * 60)) : 0
         return sum + hours * (slot.hourlyRate || 5)
       }, 0)
 
@@ -387,7 +497,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
             <CardContent>
               <div className="space-y-4">
                 {parkingSlots.map((slot) => (
-                  <div key={slot.id} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div key={slot._id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center justify-center w-12 h-12 bg-blue-100 rounded-lg">
                         <Car className="h-6 w-6 text-blue-600" />
@@ -427,7 +537,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleSlotStatusChange(slot.id, "available")}
+                          onClick={() => handleSlotStatusChange(slot._id, "available")}
                           className="text-green-600"
                         >
                           Free Slot
@@ -438,7 +548,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleSlotStatusChange(slot.id, "blocked")}
+                          onClick={() => handleSlotStatusChange(slot._id, "blocked")}
                           className="text-orange-600"
                         >
                           Block
@@ -449,7 +559,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleSlotStatusChange(slot.id, "available")}
+                          onClick={() => handleSlotStatusChange(slot._id, "available")}
                           className="text-green-600"
                         >
                           Unblock
@@ -463,7 +573,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleDeleteSlot(slot.id)}
+                        onClick={() => handleDeleteSlot(slot._id)}
                         className="text-red-600"
                         disabled={slot.status === "occupied"}
                       >
@@ -488,7 +598,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
                 {parkingSlots
                   .filter((slot) => slot.status === "available")
                   .map((slot) => (
-                    <div key={slot.id} className="p-4 border border-green-200 bg-green-50 rounded-lg">
+                    <div key={slot._id} className="p-4 border border-green-200 bg-green-50 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <h3 className="font-bold text-lg">{slot.number}</h3>
                         <Badge className="bg-green-600">Available</Badge>
@@ -503,7 +613,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleSlotStatusChange(slot.id, "blocked")}
+                          onClick={() => handleSlotStatusChange(slot._id, "blocked")}
                           className="text-orange-600"
                         >
                           Block
@@ -527,7 +637,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
                 {parkingSlots
                   .filter((slot) => slot.status === "occupied")
                   .map((slot) => (
-                    <div key={slot.id} className="p-4 border border-red-200 bg-red-50 rounded-lg">
+                    <div key={slot._id} className="p-4 border border-red-200 bg-red-50 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
@@ -545,7 +655,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleSlotStatusChange(slot.id, "available")}
+                            onClick={() => handleSlotStatusChange(slot._id, "available")}
                             className="text-green-600"
                           >
                             Check Out
@@ -573,7 +683,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
                 {parkingSlots
                   .filter((slot) => slot.status === "blocked")
                   .map((slot) => (
-                    <div key={slot.id} className="p-4 border border-orange-200 bg-orange-50 rounded-lg">
+                    <div key={slot._id} className="p-4 border border-orange-200 bg-orange-50 rounded-lg">
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
@@ -589,7 +699,7 @@ export function SlotManagement({ parkingSlots, onSlotsUpdate }) {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleSlotStatusChange(slot.id, "available")}
+                            onClick={() => handleSlotStatusChange(slot._id, "available")}
                             className="text-green-600"
                           >
                             Unblock

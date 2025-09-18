@@ -34,4 +34,3 @@ export function useSlots() {
 
   return { slots, loading, error, refetch: fetchSlots }
 }
-}

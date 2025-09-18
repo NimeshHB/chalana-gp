@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Car, Clock, MapPin, CreditCard, History, DollarSign, BarChart, Moon, Sun } from "lucide-react"
 import { UserProfile } from "./user-profile"
+import BookingForm from "./BookingForm"
 import { useState, useEffect } from "react"
 import {
   Dialog,
@@ -29,6 +30,7 @@ export function UserDashboard({ parkingSlots, currentUser, onSlotUpdate }) {
   const [refresh, setRefresh] = useState(0)
   const [balance, setBalance] = useState(25.50)
   const [totalSpent, setTotalSpent] = useState(0)
+  const [showBookingForm, setShowBookingForm] = useState(false)
   const [paymentMethods, setPaymentMethods] = useState([
     { id: 1, type: "Visa", last4: "1234", expiry: "12/25", cardType: "Credit" },
   ])
@@ -57,36 +59,9 @@ export function UserDashboard({ parkingSlots, currentUser, onSlotUpdate }) {
     return () => clearInterval(interval)
   }, [])
 
-  // Booking function with real-time timestamp
+  // Open booking form function
   const handleBookSlot = () => {
-    const availableSlot = localParkingSlots.find((slot) => slot.status === "available")
-    if (!availableSlot) {
-      alert("No available slots for booking.")
-      console.error("Booking failed: No available slots")
-      return
-    }
-    if (!currentUser.vehicleNumber) {
-      alert("Please add a vehicle number in your profile before booking.")
-      console.error("Booking failed: No vehicle number")
-      return
-    }
-    const now = new Date() // July 24, 2025, 04:25 AM +0530
-    const updatedSlots = localParkingSlots.map((slot) => {
-      if (slot.id === availableSlot.id) {
-        return {
-          ...slot,
-          status: "occupied",
-          bookedBy: currentUser.name,
-          vehicleNumber: currentUser.vehicleNumber,
-          bookedAt: now.toISOString(),
-        }
-      }
-      return slot
-    })
-    setLocalParkingSlots(updatedSlots)
-    onSlotUpdate(updatedSlots)
-    console.log("Booked slot:", availableSlot.id, "at", now.toLocaleString("en-GB", { timeZone: "Asia/Kolkata" }))
-    alert(`Successfully booked slot ${availableSlot.number}`)
+    setShowBookingForm(true)
   }
 
   // Checkout function
@@ -989,6 +964,22 @@ export function UserDashboard({ parkingSlots, currentUser, onSlotUpdate }) {
           }}
         />
       </div>
+
+      {/* Booking Form Dialog */}
+      <Dialog open={showBookingForm} onOpenChange={setShowBookingForm}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Book a Parking Slot</DialogTitle>
+            <DialogDescription>
+              Select your preferred slot and complete your booking
+            </DialogDescription>
+          </DialogHeader>
+          <BookingForm 
+            onSuccess={() => setShowBookingForm(false)} 
+            currentUser={currentUser}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

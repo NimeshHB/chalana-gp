@@ -1,6 +1,6 @@
-import { UserService } from "./services/userService"
-
-const userService = new UserService()
+import bcrypt from "bcryptjs"
+import dbConnect from "./dbConnect"
+import User from "../models/User"
 
 export interface AuthUser {
   id: string
@@ -17,15 +17,21 @@ export interface AuthUser {
 
 export async function authenticateUser(email: string, password: string): Promise<AuthUser | null> {
   try {
-    const user = await userService.authenticateUser(email, password)
+    await dbConnect()
+    const user = await User.findOne({ email, status: "active" })
 
     if (!user) {
       return null
     }
 
+    const isPasswordValid = await bcrypt.compare(password, user.password)
+    if (!isPasswordValid) {
+      return null
+    }
+
     // Convert MongoDB user to AuthUser
     return {
-      id: user._id!.toString(),
+      id: user._id.toString(),
       name: user.name,
       email: user.email,
       role: user.role,
@@ -54,10 +60,26 @@ export async function registerUser(userData: {
   permissions?: string[]
 }): Promise<AuthUser | null> {
   try {
-    const user = await userService.createUser(userData)
+    await dbConnect()
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: userData.email })
+    if (existingUser) {
+      throw new Error("User with this email already exists")
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(userData.password, 12)
+
+    const user = await User.create({
+      ...userData,
+      password: hashedPassword,
+      status: "active",
+      isVerified: false,
+    })
 
     return {
-      id: user._id!.toString(),
+      id: user._id.toString(),
       name: user.name,
       email: user.email,
       role: user.role,
@@ -76,14 +98,15 @@ export async function registerUser(userData: {
 
 export async function getUserById(id: string): Promise<AuthUser | null> {
   try {
-    const user = await userService.getUserById(id)
+    await dbConnect()
+    const user = await User.findById(id)
 
     if (!user) {
       return null
     }
 
     return {
-      id: user._id!.toString(),
+      id: user._id.toString(),
       name: user.name,
       email: user.email,
       role: user.role,
