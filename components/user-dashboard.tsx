@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Car, Clock, MapPin, CreditCard, History, DollarSign, BarChart, Moon, Sun } from "lucide-react"
 import { UserProfile } from "./user-profile"
-import BookingForm from "./BookingForm"
+import BookingForm from "./BookingFormWithPayment"
 import { useState, useEffect } from "react"
 import {
   Dialog,
@@ -40,6 +40,7 @@ export function UserDashboard({ parkingSlots, currentUser, onSlotUpdate }) {
   const [error, setError] = useState("")
   const [showAllHistory, setShowAllHistory] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
 
   const userBookings = localParkingSlots.filter((slot) => slot.bookedBy === currentUser.name)
   const availableSlots = localParkingSlots.filter((slot) => slot.status === "available").length
@@ -65,58 +66,89 @@ export function UserDashboard({ parkingSlots, currentUser, onSlotUpdate }) {
   }
 
   // Checkout function
-  const handleCheckOut = (slotId) => {
-    const now = new Date() // July 24, 2025, 04:25 AM +0530
-    const updatedSlots = localParkingSlots.map((slot) => {
-      if (slot.id === slotId) {
-        const bookedAt = new Date(slot.bookedAt)
-        const durationMinutes = Math.floor((now - bookedAt) / (1000 * 60))
-        const durationHours = durationMinutes / 60
-        const ratePerHour = 5 // $5 per hour
-        const amount = Math.max(2.5, Math.round(durationHours * ratePerHour * 100) / 100) // Minimum $2.50 charge
+  const handleCheckOut = async (slotId) => {
+    setCheckoutLoading(true)
+    setError("")
 
-        // Check balance
-        if (balance < amount) {
-          alert("Insufficient balance. Please add funds.")
-          console.error("Checkout failed: Insufficient balance", { balance, amount })
-          return slot
-        }
-        setBalance((prev) => prev - amount)
-
-        // Add to billing history
-        setBillingHistory((prev) => {
-          const newHistory = [
-            ...prev,
-            {
-              id: Date.now(),
-              date: now.toISOString().split("T")[0], // e.g., "2025-07-24"
-              amount,
-              description: `Slot ${slot.number} - ${getTimeElapsed(slot.bookedAt)}`,
-              slotNumber: slot.number,
-              vehicleNumber: slot.vehicleNumber || currentUser.vehicleNumber || "N/A",
-              duration: getTimeElapsed(slot.bookedAt),
-              startTime: bookedAt.toLocaleTimeString("en-GB", { hour12: true, timeZone: "Asia/Kolkata" }),
-            },
-          ]
-          console.log("New billing history entry:", newHistory[newHistory.length - 1])
-          return newHistory
+    try {
+      // Make direct API call to checkout endpoint
+      const response = await fetch(`/api/slots/${slotId}/checkout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          userId: currentUser.id
         })
-        setTotalSpent((prev) => Math.round((prev + amount) * 100) / 100)
+      })
 
-        return {
-          ...slot,
-          status: "available",
-          bookedBy: null,
-          vehicleNumber: null,
-          bookedAt: null,
+      const result = await response.json()
+      
+      if (result.success) {
+        // Calculate session details from the result
+        const now = new Date()
+        const slot = localParkingSlots.find(s => s.id === slotId)
+        
+        if (slot && slot.bookedAt) {
+          const bookedAt = new Date(slot.bookedAt)
+          const durationMinutes = Math.floor((now - bookedAt) / (1000 * 60))
+          const durationHours = durationMinutes / 60
+          const ratePerHour = 5 // $5 per hour
+          const amount = Math.max(2.5, Math.round(durationHours * ratePerHour * 100) / 100) // Minimum $2.50 charge
+
+          // Check balance
+          if (balance < amount) {
+            setError("Insufficient balance. Please add funds.")
+            return
+          }
+          
+          setBalance((prev) => prev - amount)
+
+          // Add to billing history
+          setBillingHistory((prev) => {
+            const newHistory = [
+              ...prev,
+              {
+                id: Date.now(),
+                date: now.toISOString().split("T")[0],
+                amount,
+                description: `Slot ${slot.number} - ${getTimeElapsed(slot.bookedAt)}`,
+                slotNumber: slot.number,
+                vehicleNumber: slot.vehicleNumber || currentUser.vehicleNumber || "N/A",
+                duration: getTimeElapsed(slot.bookedAt),
+                startTime: bookedAt.toLocaleTimeString("en-GB", { hour12: true, timeZone: "Asia/Kolkata" }),
+              },
+            ]
+            return newHistory
+          })
+          setTotalSpent((prev) => Math.round((prev + amount) * 100) / 100)
         }
+
+        // Update local state with the response
+        const updatedSlots = localParkingSlots.map((s) =>
+          s.id === slotId ? {
+            ...s,
+            status: "available",
+            bookedBy: null,
+            vehicleNumber: null,
+            bookedAt: null,
+          } : s
+        )
+
+        setLocalParkingSlots(updatedSlots)
+        onSlotUpdate(updatedSlots)
+        
+        console.log("Checked out slot:", slotId, "at", now.toLocaleString("en-GB", { timeZone: "Asia/Kolkata" }))
+        
+      } else {
+        setError(result.error || "Failed to check out. Please try again.")
       }
-      return slot
-    })
-    setLocalParkingSlots(updatedSlots)
-    onSlotUpdate(updatedSlots)
-    console.log("Checked out slot:", slotId, "at", now.toLocaleString("en-GB", { timeZone: "Asia/Kolkata" }))
-    alert("Successfully checked out")
+    } catch (error) {
+      console.error("Checkout error:", error)
+      setError("Failed to check out. Please try again.")
+    } finally {
+      setCheckoutLoading(false)
+    }
   }
 
   // Calculate elapsed time
@@ -609,6 +641,11 @@ export function UserDashboard({ parkingSlots, currentUser, onSlotUpdate }) {
                 Active Parking Session
               </CardTitle>
               <CardDescription>You are currently parked in slot {currentBooking.number}</CardDescription>
+              {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                  {error}
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -632,8 +669,12 @@ export function UserDashboard({ parkingSlots, currentUser, onSlotUpdate }) {
                     <Clock className={isDarkMode ? "text-gray-400" : ""} />
                     Started at {new Date(currentBooking.bookedAt).toLocaleTimeString("en-GB", { hour12: true, timeZone: "Asia/Kolkata" })}
                   </div>
-                  <Button onClick={() => handleCheckOut(currentBooking.id)} className={isDarkMode ? "bg-red-700 hover:bg-red-800" : "bg-red-600 hover:bg-red-700"}>
-                    Check Out
+                  <Button 
+                    onClick={() => handleCheckOut(currentBooking.id)} 
+                    disabled={checkoutLoading}
+                    className={isDarkMode ? "bg-red-700 hover:bg-red-800" : "bg-red-600 hover:bg-red-700"}
+                  >
+                    {checkoutLoading ? "Checking out..." : "Check Out"}
                   </Button>
                 </div>
 

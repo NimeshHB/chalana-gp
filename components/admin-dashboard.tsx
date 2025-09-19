@@ -13,6 +13,8 @@ import { AdminManagement } from "./admin-management"
 import { AdminActivityDashboard } from "./admin-activity-dashboard"
 import { SlotManagement } from "./slot-management"
 import { UserManagementDashboard } from "./user-management-dashboard"
+import PaymentDashboard from "./payment-dashboard"
+import PricingManagementDashboard from "./pricing-management-dashboard"
 import { useState, useEffect } from "react"
 import { LoginForm } from "./login-form" // Adjust path as needed
 import { useAnalytics } from "@/hooks/use-analytics"
@@ -158,7 +160,7 @@ export function AdminDashboard({}: AdminDashboardProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6 max-w-full overflow-hidden">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">Admin Dashboard</h2>
         <Button variant="outline" onClick={handleExportReport}>
@@ -211,17 +213,21 @@ export function AdminDashboard({}: AdminDashboardProps) {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-9">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="chat">Chat</TabsTrigger>
-          <TabsTrigger value="slots">Slot Management</TabsTrigger>
-          <TabsTrigger value="admins">Admin Management</TabsTrigger>
-          <TabsTrigger value="activity">Admin Activity</TabsTrigger>
-          <TabsTrigger value="bookings">Recent Bookings</TabsTrigger>
-          <TabsTrigger value="users">User Management</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto">
+          <TabsList className="inline-flex h-auto min-w-full p-1 bg-muted/50 rounded-lg flex-wrap gap-1">
+            <TabsTrigger value="overview" className="whitespace-nowrap">Overview</TabsTrigger>
+            <TabsTrigger value="analytics" className="whitespace-nowrap">Analytics</TabsTrigger>
+            <TabsTrigger value="chat" className="whitespace-nowrap">Chat</TabsTrigger>
+            <TabsTrigger value="slots" className="whitespace-nowrap">Slot Management</TabsTrigger>
+            <TabsTrigger value="payments" className="whitespace-nowrap">Payment Management</TabsTrigger>
+            <TabsTrigger value="pricing" className="whitespace-nowrap">Pricing Management</TabsTrigger>
+            <TabsTrigger value="admins" className="whitespace-nowrap">Admin Management</TabsTrigger>
+            <TabsTrigger value="activity" className="whitespace-nowrap">Admin Activity</TabsTrigger>
+            <TabsTrigger value="bookings" className="whitespace-nowrap">Recent Bookings</TabsTrigger>
+            <TabsTrigger value="users" className="whitespace-nowrap">User Management</TabsTrigger>
+            <TabsTrigger value="settings" className="whitespace-nowrap">Settings</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="analytics" className="space-y-4">
           {analyticsLoading ? (
@@ -645,6 +651,14 @@ export function AdminDashboard({}: AdminDashboardProps) {
 
         <TabsContent value="slots" className="space-y-4">
           <SlotManagement />
+        </TabsContent>
+
+        <TabsContent value="payments" className="space-y-4">
+          <PaymentDashboard />
+        </TabsContent>
+
+        <TabsContent value="pricing" className="space-y-4">
+          <PricingManagementDashboard />
         </TabsContent>
 
         <TabsContent value="admins" className="space-y-4">

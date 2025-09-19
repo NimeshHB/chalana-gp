@@ -122,3 +122,29 @@ export async function getUserById(id: string): Promise<AuthUser | null> {
     return null
   }
 }
+
+export async function checkAuth(request: Request): Promise<{ user: AuthUser | null }> {
+  try {
+    // For now, return a simple mock auth
+    // In a real app, you'd check JWT tokens, sessions, etc.
+    const authHeader = request.headers.get('authorization')
+    
+    if (!authHeader) {
+      return { user: null }
+    }
+    
+    // Mock user for testing - in real app, decode JWT and get user
+    const mockUser: AuthUser = {
+      id: "mock-user-id",
+      name: "Mock User",
+      email: "user@example.com",
+      role: "admin",
+      status: "active"
+    }
+    
+    return { user: mockUser }
+  } catch (error) {
+    console.error("Auth check error:", error)
+    return { user: null }
+  }
+}

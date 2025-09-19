@@ -23,23 +23,60 @@ export async function POST(
     }
 
     // Find the active booking for this slot
-    const booking = await Booking.findOne({
+    console.log('=== CHECKOUT DEBUG ===')
+    console.log('Slot ID from URL:', slotId)
+    console.log('Slot found:', { _id: slot._id, number: slot.number, status: slot.status, bookedByUserId: slot.bookedByUserId })
+    console.log('User ID from request:', data.userId)
+
+    // First try to find booking with exact user ID match
+    let booking = await Booking.findOne({
       slotId: slot._id,
       userId: data.userId,
-      status: 'active'
+      status: { $in: ['active', 'confirmed'] }
     });
 
+    console.log('Found booking with exact user match:', booking)
+
+    // If no exact match and this is a temp user system, try to find by slot's bookedByUserId
+    if (!booking && slot.bookedByUserId) {
+      console.log('Trying to find booking with slot.bookedByUserId:', slot.bookedByUserId)
+      booking = await Booking.findOne({
+        slotId: slot._id,
+        userId: slot.bookedByUserId,
+        status: { $in: ['active', 'confirmed'] }
+      });
+      console.log('Found booking with slot.bookedByUserId match:', booking)
+    }
+
+    // Let's also check what bookings exist for this slot
+    const allSlotBookings = await Booking.find({ slotId: slot._id })
+    console.log('All bookings for this slot:', allSlotBookings.map(b => ({
+      _id: b._id,
+      userId: b.userId,
+      status: b.status,
+      createdAt: b.createdAt
+    })))
+
     if (!booking) {
+      console.log('=== NO BOOKING FOUND ===')
       return NextResponse.json(
-        { success: false, error: "No active booking found for this slot" },
+        { success: false, error: "No active or confirmed booking found for this slot" },
         { status: 400 }
       );
     }
 
+    // If booking was confirmed but not checked in, check it in first
+    if (booking.status === 'confirmed') {
+      booking.status = 'active';
+      booking.actualStartTime = new Date();
+      await booking.save();
+    }
+
     // Calculate actual duration and final amount
     const checkoutTime = new Date();
+    const startTime = booking.actualStartTime || booking.startTime || slot.bookedAt;
     const actualDuration = Math.ceil(
-      (checkoutTime.getTime() - booking.actualStartTime!.getTime()) / (1000 * 60 * 60)
+      (checkoutTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
     );
 
     // Get slot hourly rate for calculation

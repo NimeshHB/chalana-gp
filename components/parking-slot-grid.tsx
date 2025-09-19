@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import BookingForm from "./BookingForm"
+import BookingForm from "./BookingFormWithPayment"
 
 export function ParkingSlotGrid({ slots, onSlotUpdate, userRole, currentUser }: any) {
   const [showBookingForm, setShowBookingForm] = useState(false)
